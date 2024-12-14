@@ -122,6 +122,19 @@ class Execute : public Named
     /** Dcache port to pass on to the CPU.  Execute owns this */
     LSQ lsq;
 
+    /** ECE565-CA Project: Custom statistics */
+    struct Execute2Stats : public statistics::Group
+    {
+        Execute2Stats(MinorCPU *);
+        /** Stats */
+        statistics::Scalar vplAccesses;    // Tracks the number of VPL accesses
+        statistics::Scalar vplHits;        // Tracks the number of successful VPL predictions
+        statistics::Scalar vplMisses;      // Tracls the number of mixes in VPLT
+        statistics::Scalar cltUpdates;     // Tracks the number of CLT updates
+        statistics::Scalar cvuVerifications; // Tracks the number of CVU verifications
+        statistics::Scalar cvuMismatches;  // Tracks the number of CVU mismatches
+    } stats;
+
     /** Scoreboard of instruction dependencies */
     std::vector<Scoreboard> scoreboard;
 
@@ -130,6 +143,9 @@ class Execute : public Named
 
   public: /* Public for Pipeline to be able to pass it to Decode */
     std::vector<InputBuffer<ForwardInstData>> inputBuffer;
+  
+  private:
+    Pipeline &pipeline;
 
   protected:
     /** Stage cycle-by-cycle state */
@@ -324,6 +340,7 @@ class Execute : public Named
     Execute(const std::string &name_,
         MinorCPU &cpu_,
         const BaseMinorCPUParams &params,
+        Pipeline &pipeline_,
         Latch<ForwardInstData>::Output inp_,
         Latch<BranchData>::Input out_);
 
@@ -349,6 +366,13 @@ class Execute : public Named
     void evaluate();
 
     void minorTrace() const;
+
+    /** ECE565-CA Project: Flush the Execute stage */
+    void flush(MinorCPU &);
+
+    /** ECE565-CA Project: Fetch the memory data from the given address
+     * passed as parameter */
+    uint64_t fetchMemoryValue(Addr addr);
 
     /** After thread suspension, has Execute been drained of in-flight
      *  instructions and memory accesses. */

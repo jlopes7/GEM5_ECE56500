@@ -130,6 +130,9 @@ class Pipeline : public Ticked
 
     void minorTrace() const;
 
+    /** ECE565-CA Project: Flush the entire pipeline */
+    void flush();
+
     /** Functions below here are BaseCPU operations passed on to pipeline
      *  stages */
 

@@ -43,11 +43,13 @@
 #include "base/logging.hh"
 #include "base/trace.hh"
 #include "cpu/minor/pipeline.hh"
+#include "cpu/minor/mem-helper.hh"
 #include "cpu/null_static_inst.hh"
 #include "cpu/pred/bpred_unit.hh"
 #include "debug/Branch.hh"
 #include "debug/Fetch.hh"
 #include "debug/MinorTrace.hh"
+#include "debug/ece565ca-debug.hh"
 
 namespace gem5
 {
@@ -124,6 +126,15 @@ Fetch2::dumpAllInput(ThreadID tid)
         popInput(tid);
 
     fetchInfo[tid].inputIndex = 0;
+}
+
+void
+Fetch2::flush(MinorCPU &cpu)
+{
+    for (ThreadID tid = 0; tid < cpu.numThreads; tid++) {
+        dumpAllInput(tid); // Clears Fetch2 input buffers
+        fetchInfo[tid].havePC = false;
+    }
 }
 
 void
@@ -426,6 +437,45 @@ Fetch2::evaluate()
                     else if (decoded_inst->isInteger())
                         stats.intInstructions++;
 
+                    if ( decoded_inst->isLoad() ) {
+                        RegIndex baseRegIdx = dyn_inst->staticInst->srcRegIdx(0);
+                        Addr pc = fetch_info.pc->instAddr();
+                        int32_t offset = MemHelper::retrieveEffectiveAddr(dyn_inst->staticInst->disassemble(pc));
+                        ThreadContext *tc = cpu.getContext(dyn_inst->id.threadId);
+                        
+                        Addr loadAddr = tc->readIntReg(baseRegIdx) + offset;//fetch_info.pc->instAddr();
+                        DPRINTF(ECE565CA, "Load Op Address: %#x", loadAddr);
+
+                        if (cpu.lvpTable.count(loadAddr) && cpu.lvpTable[loadAddr].valid && cpu.lctTable[loadAddr].confidence >= cpu.lctConfidenceLevelLimit ) {
+                            dyn_inst->predictedValue = cpu.lvpTable[loadAddr].predictedValue;
+
+                            stats.lvpValidPred++;
+
+                            DPRINTF(ECE565CA, "LVP predicted value for addr %#x: %d\n",
+                                    loadAddr, cpu.lvpTable[loadAddr].predictedValue);
+                        } 
+                        else {
+                            dyn_inst->predictedValue = 0; // Default prediction
+
+                            stats.lvpInvalidPred++;
+
+                        }
+
+                        // Update classification table - this action is being controlled by the Execute stage
+                        /*if ( cpu.lctTable.count(loadAddr) ) {
+                            if ( cpu.lvpTable[loadAddr].valid && cpu.lctTable[loadAddr].confidence >= cpu.lctConfidenceLevelLimit && cpu.lctTable[loadAddr].confidence cpu.lctTable[loadAddr].confidence < LCT_CONF_MAX ) {
+                                cpu.lctTable[loadAddr].confidence++;
+                            }
+                            else {
+                                cpu.lctTable[loadAddr].confidence--;
+                            }
+                        }*/
+                        if ( !cpu.lctTable.count(loadAddr) ) {
+                            cpu.lctTable[loadAddr] = {loadAddr, false, 0 /*0x00*/};
+                        }
+		        DPRINTF(ECE565CA, "LCT confidence level: %d\n", cpu.lctTable[loadAddr].confidence);
+                    }
+
                     DPRINTF(Fetch, "Instruction extracted from line %s"
                         " lineWidth: %d output_index: %d inputIndex: %d"
                         " pc: %s inst: %s\n",
@@ -614,7 +664,11 @@ Fetch2::Fetch2Stats::Fetch2Stats(MinorCPU *cpu)
       ADD_STAT(storeInstructions, statistics::units::Count::get(),
                "Number of memory store instructions successfully decoded"),
       ADD_STAT(amoInstructions, statistics::units::Count::get(),
-               "Number of memory atomic instructions successfully decoded")
+               "Number of memory atomic instructions successfully decoded"),
+      ADD_STAT(lvpValidPred, statistics::units::Count::get(),
+               "A valid prediction was made by the LVPT."),
+      ADD_STAT(lvpInvalidPred, statistics::units::Count::get(),
+               "An invalid prediction was made by the LVPT")
 {
         intInstructions
             .flags(statistics::total);

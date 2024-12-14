@@ -69,7 +69,7 @@ Pipeline::Pipeline(MinorCPU &cpu_, const BaseMinorCPUParams &params) :
         params.decodeToExecuteForwardDelay),
     eToF1(cpu.name() + ".eToF1", "branch",
         params.executeBranchDelay),
-    execute(cpu.name() + ".execute", cpu, params,
+    execute(cpu.name() + ".execute", cpu, params, *this,
         dToE.output(), eToF1.input()),
     decode(cpu.name() + ".decode", cpu, params,
         f2ToD.output(), dToE.input(), execute.inputBuffer),
@@ -120,6 +120,23 @@ Pipeline::minorTrace() const
     execute.minorTrace();
     eToF1.minorTrace();
     activityRecorder.minorTrace();
+}
+
+void
+Pipeline::flush() {
+    // Clear input and output buffers in Fetch1
+    fetch1.flush(cpu);
+
+    // Flush Fetch1
+    fetch2.flush(cpu);
+
+    // Flush the decode
+    decode.flush(cpu);
+
+    // Flush the execute
+    execute.flush(cpu);
+
+    DPRINTF(MinorCPU, "Pipeline flushed due to misprediction\n");
 }
 
 void

@@ -59,6 +59,7 @@ if env['CONF']['TARGET_ISA'] != 'null':
     Source('pipeline.cc')
     Source('scoreboard.cc')
     Source('stats.cc')
+    Source('mem-helper.cc')
 
     DebugFlag('MinorCPU', 'Minor CPU-level events')
     DebugFlag('MinorExecute', 'Minor Execute stage')

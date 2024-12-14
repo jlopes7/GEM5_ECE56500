@@ -237,10 +237,13 @@ class MinorDynInst : public RefCounted
      *  up */
     std::vector<RegId> flatDestRegIdx;
 
+    /** ECE565-CA Project: Stores the predicted value with the instruction */
+    uint64_t predictedValue;
+
   public:
     MinorDynInst(StaticInstPtr si, InstId id_=InstId(), Fault fault_=NoFault) :
         staticInst(si), id(id_), fault(fault_), translationFault(NoFault),
-        flatDestRegIdx(si ? si->numDestRegs() : 0)
+        flatDestRegIdx(si ? si->numDestRegs() : 0), predictedValue(0)
     { }
 
   public:

@@ -171,6 +171,8 @@ class Fetch2 : public Named
         statistics::Scalar loadInstructions;
         statistics::Scalar storeInstructions;
         statistics::Scalar amoInstructions;
+        statistics::Scalar lvpValidPred;
+	statistics::Scalar lvpInvalidPred;
     } stats;
 
   protected:
@@ -214,6 +216,8 @@ class Fetch2 : public Named
 
     void minorTrace() const;
 
+    /** ECE565-CA Project: Flush the stage */
+    void flush(MinorCPU &);
 
     /** Is this stage drained?  For Fetch2, draining is initiated by
      *  Execute halting Fetch1 causing Fetch2 to naturally drain.
